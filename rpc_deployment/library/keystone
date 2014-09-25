@@ -221,6 +221,11 @@ COMMAND_MAP = {
             'user_name'
         ]
     },
+    'get_domain': {
+        'variables': [
+            'domain_name'
+        ]
+    },
     'ensure_service': {
         'variables': [
             'service_name',
@@ -233,9 +238,8 @@ COMMAND_MAP = {
             'region_name',
             'service_name',
             'service_type',
-            'publicurl',
-            'adminurl',
-            'internalurl'
+            'url',
+            'interface'
         ]
     },
     'ensure_role': {
@@ -248,26 +252,34 @@ COMMAND_MAP = {
             'tenant_name',
             'user_name',
             'password',
-            'email'
+            'email',
+            'domain_name'
         ]
     },
     'ensure_user_role': {
         'variables': [
             'user_name',
             'tenant_name',
-            'role_name'
+            'role_name',
+            'domain_name'
         ]
     },
     'ensure_tenant': {
         'variables': [
             'tenant_name',
-            'description'
+            'description',
+            'domain_name'
+        ]
+    },
+    'ensure_domain': {
+        'variables': [
+            'domain_name'
         ]
     }
 }
 
 try:
-    from keystoneclient.v2_0 import client
+    from keystoneclient.v3 import client
 except ImportError:
     keystoneclient_found = False
 else:
@@ -403,7 +415,7 @@ class ManageKeystone(object):
 
         :param name: ``str``  Name of the tenant.
         """
-        for entry in self.keystone.tenants.list():
+        for entry in self.keystone.projects.list():
             if entry.name == name:
                 return entry
         else:
@@ -442,14 +454,20 @@ class ManageKeystone(object):
         variables_dict = self._get_vars(variables, required=['tenant_name'])
         tenant_name = variables_dict.pop('tenant_name')
         tenant_description = variables_dict.pop('description')
+        domain_name = variables_dict.pop('domain_name')
+
+        if domain_name is None:
+            domain = self._get_domain(name='Default')
+
         if tenant_description is None:
             tenant_description = 'Tenant %s' % tenant_name
 
         tenant = self._get_tenant(name=tenant_name)
         if tenant is None:
             self.state_change = True
-            tenant = self.keystone.tenants.create(
-                tenant_name=tenant_name,
+            tenant = self.keystone.projects.create(
+                name=tenant_name,
+                domain=domain,
                 description=tenant_description,
                 enabled=True
             )
@@ -505,6 +523,7 @@ class ManageKeystone(object):
         password = variables_dict.pop('password')
         user_name = variables_dict.pop('user_name')
         email = variables_dict.pop('email')
+        domain_name = variables_dict.pop('domain_name')
 
         tenant = self._get_tenant(name=tenant_name)
         if tenant is None:
@@ -514,6 +533,18 @@ class ManageKeystone(object):
                 msg='tenant was not found, does it exist?'
             )
 
+        if domain_name is not None:
+            domain = self._get_domain(name=domain_name)
+        else:
+            domain = self._get_domain(name='Default')
+
+        if domain is None:
+            self.failure(
+                error='domain [ %s ] was not found.' % domain_name,
+                rc=2,
+                msg='domain was not found, does it exist?'
+            )
+
         user = self._get_user(name=user_name)
         if user is None:
             self.state_change = True
@@ -521,7 +552,8 @@ class ManageKeystone(object):
                 name=user_name,
                 password=password,
                 email=email,
-                tenant_id=tenant.id
+                tenant_id=tenant.id,
+                domain=domain.id
             )
 
         return self._facts(facts={'id': user.id})
@@ -560,7 +592,7 @@ class ManageKeystone(object):
 
         return self._facts(facts={'id': role_data.id})
 
-    def _get_role_data(self, user_name, tenant_name, role_name):
+    def _get_role_data(self, user_name, tenant_name, role_name, domain_name):
         user = self._get_user(name=user_name)
         if user is None:
             self.failure(
@@ -569,13 +601,16 @@ class ManageKeystone(object):
                 msg='User was not found, does it exist?'
             )
 
-        tenant = self._get_tenant(name=tenant_name)
-        if tenant is None:
-            self.failure(
-                error='tenant [ %s ] was not found.' % tenant_name,
-                rc=2,
-                msg='tenant was not found, does it exist?'
-            )
+        if tenant_name is not None:
+            tenant = self._get_tenant(name=tenant_name)
+            if tenant is None:
+                self.failure(
+                    error='tenant [ %s ] was not found.' % tenant_name,
+                    rc=2,
+                    msg='tenant was not found, does it exist?'
+                )
+        else:
+            tenant = None
 
         role = self._get_role(name=role_name)
         if role is None:
@@ -585,7 +620,18 @@ class ManageKeystone(object):
                 msg='role was not found, does it exist?'
             )
 
-        return user, tenant, role
+        if domain_name is not None:
+            domain = self._get_domain(name=domain_name)
+            if domain is None:
+                self.failure(
+                    error='domain [ %s ] was not found.' % domain_name,
+                    rc=2,
+                    msg='domain was not found, does it exist?'
+                )
+        else:
+            domain = None
+
+        return user, tenant, role, domain
 
     def ensure_role(self, variables):
         """Create a new role within Keystone if it does not exist.
@@ -606,8 +652,13 @@ class ManageKeystone(object):
 
         return self._facts(facts={'id': role.id})
 
-    def _get_user_roles(self, name, user, tenant):
-        for entry in self.keystone.users.list_roles(user, tenant.id):
+    def _get_user_roles(self, name, user, tenant, domain):
+        if tenant is not None:
+            roles = self.keystone.roles.list(user=user, project=tenant.id)
+        elif domain is not None:
+            roles = self.keystone.roles.list(user=user, domain=domain.id)
+
+        for entry in roles:
             if entry.name == name:
                 return entry
         else:
@@ -615,26 +666,44 @@ class ManageKeystone(object):
 
     def ensure_user_role(self, variables):
         self._authenticate()
-        required_vars = ['user_name', 'tenant_name', 'role_name']
+        required_vars = ['user_name', 'role_name']
         variables_dict = self._get_vars(variables, required=required_vars)
         user_name = variables_dict.pop('user_name')
         tenant_name = variables_dict.pop('tenant_name')
         role_name = variables_dict.pop('role_name')
+        domain_name = variables_dict.pop('domain_name')
 
-        user, tenant, role = self._get_role_data(
-            user_name=user_name, tenant_name=tenant_name, role_name=role_name
+        if tenant_name is not None and domain_name is not None:
+            self.failure(
+                error='tenant_name and domain_name both supplied to '
+                      'ensure_user_role task .',
+                rc=2,
+                msg='Keystone requires that you only pass a tenant or '
+                    'domain, but not both.'
+            )
+
+        user, tenant, role, domain = self._get_role_data(
+            user_name=user_name,
+            tenant_name=tenant_name,
+            role_name=role_name,
+            domain_name=domain_name
         )
 
         user_role = self._get_user_roles(
-            name=role_name, user=user, tenant=tenant
+            name=role_name, user=user, tenant=tenant, domain=domain
         )
 
         if user_role is None:
-            self.keystone.roles.add_user_role(
-                user=user, role=role, tenant=tenant
-            )
+            if tenant is not None:
+                self.keystone.roles.grant(
+                    user=user, role=role, project=tenant
+                )
+            elif domain is not None:
+                self.keystone.roles.grant(
+                    user=user, role=role, domain=domain
+                )
             user_role = self._get_user_roles(
-                name=role_name, user=user, tenant=tenant
+                name=role_name, user=user, tenant=tenant, domain=domain
             )
 
         return self._facts(facts={'id': user_role.id})
@@ -670,19 +739,17 @@ class ManageKeystone(object):
             self.state_change = True
             service = self.keystone.services.create(
                 name=service_name,
-                service_type=service_type,
+                type=service_type,
                 description=description
             )
 
         return self._facts(facts={'id': service.id})
 
-    def _get_endpoint(self, region, publicurl, adminurl, internalurl):
+    def _get_endpoint(self, region, interface):
         for entry in self.keystone.endpoints.list():
             check = [
                 entry.region == region,
-                entry.publicurl == publicurl,
-                entry.adminurl == adminurl,
-                entry.internalurl == internalurl
+                entry.interface == interface
             ]
             if all(check):
                 return entry
@@ -702,18 +769,16 @@ class ManageKeystone(object):
             'region_name',
             'service_name',
             'service_type',
-            'publicurl',
-            'adminurl',
-            'internalurl'
+            'url',
+            'interface'
         ]
         variables_dict = self._get_vars(variables, required=required_vars)
 
         service_name = variables_dict.pop('service_name')
         service_type = variables_dict.pop('service_type')
         region = variables_dict.pop('region_name')
-        publicurl = variables_dict.pop('publicurl')
-        adminurl = variables_dict.pop('adminurl')
-        internalurl = variables_dict.pop('internalurl')
+        url = variables_dict.pop('url')
+        interface = variables_dict.pop('interface')
 
         service = self._get_service(name=service_name, srv_type=service_type)
         if service is None:
@@ -723,23 +788,70 @@ class ManageKeystone(object):
                 msg='Service was not found, does it exist?'
             )
 
-        endpoint = self._get_endpoint(
-            region=region,
-            publicurl=publicurl,
-            adminurl=adminurl,
-            internalurl=internalurl
-        )
+        endpoint = self._get_endpoint(region=region, interface=interface)
         if endpoint is None:
             self.state_change = True
             endpoint = self.keystone.endpoints.create(
                 region=region,
-                service_id=service.id,
-                publicurl=publicurl,
-                adminurl=adminurl,
-                internalurl=internalurl
+                service=service.id,
+                url=url,
+                interface=interface
             )
 
         return self._facts(facts={'id': endpoint.id})
+
+    def _get_domain(self, name):
+        """Return a domain by name.
+
+        This will return `None` if the ``name`` is not found.
+
+        :param name: ``str``  Name of the role.
+        """
+        for entry in self.keystone.domains.list():
+            if entry.name == name:
+                return entry
+        else:
+            return None
+
+    def get_domain(self, variables):
+        """Return a domain by name.
+
+        This will return `None` if the ``name`` is not found.
+
+        :param variables: ``list``  List of all variables that are available to
+                                    use within the Keystone Command.
+        """
+        self._authenticate()
+        variables_dict = self._get_vars(variables, required=['domain_name'])
+        domain_name = variables_dict.pop('domain_name')
+        domain_data = self._get_domain(name=domain_name)
+        if domain_data is None:
+            self.failure(
+                error='domain [ %s ] was not found.' % domain_name,
+                rc=2,
+                msg='domain was not found, does it exist?'
+            )
+
+        return self._facts(facts={'id': domain_data.id})
+
+    def ensure_domain(self, variables):
+        """Create a new domain within Keystone if it does not exist.
+
+        Returns the user ID on a successful run.
+
+        :param variables: ``list``  List of all variables that are available to
+                                    use within the Keystone Command.
+        """
+        self._authenticate()
+        variables_dict = self._get_vars(variables, required=['domain_name'])
+        domain_name = variables_dict.pop('domain_name')
+
+        domain = self._get_domain(name=domain_name)
+        if domain is None:
+            self.state_change = True
+            domain = self.keystone.domains.create(domain_name)
+
+        return self._facts(facts={'id': domain.id})
 
 
 def main():
@@ -787,18 +899,18 @@ def main():
             service_type=dict(
                 required=False
             ),
-            publicurl=dict(
+            interface=dict(
                 required=False
             ),
-            adminurl=dict(
-                required=False
-            ),
-            internalurl=dict(
+            url=dict(
                 required=False
             ),
             command=dict(
                 required=True,
                 choices=COMMAND_MAP.keys()
+            ),
+            domain_name=dict(
+                required=False
             ),
             return_code=dict(
                 type='str',
