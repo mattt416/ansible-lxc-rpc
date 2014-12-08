@@ -117,6 +117,11 @@ def args():
         action='store_true',
         default=False
     )
+    exclusive_action.add_argument(
+        '--show',
+        help='',
+        default=False
+    )
 
     return vars(parser.parse_args())
 
@@ -153,6 +158,32 @@ def print_inventory(inventory, sort_key):
     return table
 
 
+def print_host_item(inventory, show):
+    _meta_data = inventory['_meta']['hostvars']
+    table = prettytable.PrettyTable()
+    host_item = _meta_data.get(show)
+    if host_item:
+        colums = list()
+        values = list()
+        count = 0
+        for k, v in host_item.items():
+            if isinstance(v, dict):
+                for _k, _v in v.items():
+                    count += 1
+                    colums.append('%s-%s' % (count, _k))
+                    values.append(_v)
+            else:
+                colums.append(k)
+                values.append(str(v))
+        else:
+            table.add_column('Keys', colums)
+            table.add_column('Values', values)
+
+        for tbl in table.align.keys():
+            table.align[tbl] = 'l'
+    return table
+
+
 def main():
     """Run the main application."""
     # Parse user args
@@ -165,6 +196,8 @@ def main():
 
     if user_args['list_host'] is True:
         print(print_inventory(inventory, user_args['sort']))
+    elif user_args['show']:
+        print(print_host_item(inventory, user_args['show']))
     else:
         recursive_dict_removal(inventory, user_args['remove_item'])
         with open(environment_file, 'wb') as f:

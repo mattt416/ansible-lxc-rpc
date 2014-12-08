@@ -362,6 +362,9 @@ network_hosts:
 haproxy_hosts:
   aio1:
     ip: 172.29.236.100
+repo_hosts:
+  aio1:
+    ip: 172.29.236.100
 EOF
 
 
@@ -431,6 +434,10 @@ pushd /opt/ansible-lxc-rpc/rpc_deployment
   install_bits setup/host-setup.yml
   # Install haproxy for dev purposes only
   install_bits infrastructure/haproxy-install.yml
+  # Install repository bits
+  install_bits infrastructure/repo-install.yml
+  # Populate the repository bits from our upstream repo
+  install_bits infrastructure/repo-clone-mirror.yml
   # Install all of the infra bits
   install_bits infrastructure/infrastructure-setup.yml
   # install all of the Openstack Bits
