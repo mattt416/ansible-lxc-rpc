@@ -52,6 +52,7 @@ container_directories:
   - { name: /etc/horizon }
   - { name: /var/lib/horizon }
   - { name: /usr/local/lib/python2.7/dist-packages/static }
+  - { name: /usr/local/lib/python2.7/dist-packages/openstack_dashboard }
   - { name: /usr/local/lib/python2.7/dist-packages/openstack_dashboard/local }
 
 horizon_fqdn: "{{ external_vip_address }}"
