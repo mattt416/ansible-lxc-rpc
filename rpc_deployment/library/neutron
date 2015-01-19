@@ -291,7 +291,7 @@ class ManageNeutron(object):
         network_id = self._get_resource_by_name('networks', net_name)
 
         if not network_id:
-            self._failure(
+            self.failure(
                 error='Network not found',
                 rc=1,
                 msg='The specified network could not be found'
@@ -334,14 +334,14 @@ class ManageNeutron(object):
         subnet_id = self._get_resource_by_name('subnets', subnet_name)
 
         if not router_id:
-            self._failure(
+            self.failure(
                 error='Router not found',
                 rc=1,
                 msg='The specified router could not be found'
             )
 
         if not subnet_id:
-            self._failure(
+            self.failure(
                 error='Subnet not found',
                 rc=1,
                 msg='The specified subnet could not be found'
