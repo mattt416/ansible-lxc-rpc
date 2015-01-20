@@ -181,12 +181,19 @@ class ManageNeutron(object):
             )
 
     @staticmethod
-    def _facts(facts):
+    def _facts(resource_type, resource_data):
         """Return a dict for our Ansible facts.
 
         :param facts: ``dict``  Dict with data to return
         """
-        return {'neutron_facts': facts}
+        key = 'neutron_%s' % resource_type
+        facts = {key: {}}
+        for f in resource_data[resource_type]:
+            name = f['name']
+            del f['name']
+            facts[key][name] = f
+
+        return facts
 
     def _get_vars(self, variables, required=None):
         """Return a dict of all variables as found within the module.
@@ -280,7 +287,7 @@ class ManageNeutron(object):
             self.state_change = True
             self.neutron.create_network({"network": n})
 
-        return self._facts(facts=self.neutron.list_networks(name=net_name))
+        return self._facts('networks', self.neutron.list_networks())
 
     def _create_subnet(self, variables):
         required_vars = ['net_name', 'subnet_name', 'cidr']
@@ -306,7 +313,7 @@ class ManageNeutron(object):
                             "network_id": network_id}}
             )
 
-        return self._facts(facts=self.neutron.list_subnets(name=subnet_name))
+        return self._facts('subnets', self.neutron.list_subnets())
 
     def _create_router(self, variables):
         required_vars = ['router_name', 'external_gateway_info']
@@ -323,7 +330,7 @@ class ManageNeutron(object):
                 r['external_gateway_info'] = {'network_id': network_id}
             self.neutron.create_router({'router': r})
 
-        return self._facts(facts=self.neutron.list_routers(name=router_name))
+        return self._facts('routers', self.neutron.list_routers())
 
     def _add_router_interface(self, variables):
         required_vars = ['router_name', 'subnet_name']
