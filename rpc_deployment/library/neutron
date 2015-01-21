@@ -113,20 +113,23 @@ COMMAND_MAP = {
             'net_name',
             'provider_physical_network',
             'provider_network_type',
-            'router_external'
+            'router_external',
+            'tenant_id'
         ]
     },
     'create_subnet': {
         'variables': [
             'net_name',
             'subnet_name',
-            'cidr'
+            'cidr',
+            'tenant_id'
         ]
     },
     'create_router': {
         'variables': [
             'router_name',
-            'external_gateway_info'
+            'external_gateway_info',
+            'tenant_id'
         ]
     },
     'add_router_interface': {
@@ -274,6 +277,7 @@ class ManageNeutron(object):
         )
         provider_network_type = variables_dict.pop('provider_network_type')
         router_external = variables_dict.pop('router_external')
+        tenant_id = variables_dict.pop('tenant_id')
 
         if not self._get_resource_by_name('networks', net_name):
             n = {"name": net_name, "admin_state_up": True}
@@ -283,6 +287,8 @@ class ManageNeutron(object):
                 n['provider:network_type'] = provider_network_type
             if router_external:
                 n['router:external'] = router_external
+            if tenant_id:
+                n['tenant_id'] = tenant_id
 
             self.state_change = True
             self.neutron.create_network({"network": n})
@@ -296,6 +302,7 @@ class ManageNeutron(object):
         subnet_name = variables_dict.pop('subnet_name')
         cidr = variables_dict.pop('cidr')
         network_id = self._get_resource_by_name('networks', net_name)
+        tenant_id = variables_dict.pop('tenant_id')
 
         if not network_id:
             self.failure(
@@ -306,13 +313,11 @@ class ManageNeutron(object):
         if not self.neutron.list_subnets(cidr=cidr,
                                          network_id=network_id)['subnets']:
             self.state_change = True
-            self.neutron.create_subnet(
-                {"subnet": {"name": subnet_name,
-                            "cidr": cidr,
-                            "ip_version": 4,
-                            "network_id": network_id}}
-            )
-
+            s = {"name": subnet_name,"cidr": cidr, "ip_version": 4,
+                 "network_id": network_id}
+            if tenant_id:
+                s["tenant_id"] = tenant_id
+            self.neutron.create_subnet({"subnet": s})
         return self._facts('subnets', self.neutron.list_subnets())
 
     def _create_router(self, variables):
@@ -320,6 +325,7 @@ class ManageNeutron(object):
         variables_dict = self._get_vars(variables, required=required_vars)
         router_name = variables_dict.pop('router_name')
         external_gateway_info = variables_dict.pop('external_gateway_info')
+        tenant_id = variables_dict.pop('tenant_id')
 
         if not self._get_resource_by_name('routers', router_name):
             self.state_change = True
@@ -328,6 +334,8 @@ class ManageNeutron(object):
                 network_id = self._get_resource_by_name('networks',
                                                         external_gateway_info)
                 r['external_gateway_info'] = {'network_id': network_id}
+            if tenant_id:
+                r['tenant_id'] = tenant_id
             self.neutron.create_router({'router': r})
 
         return self._facts('routers', self.neutron.list_routers())
@@ -381,6 +389,7 @@ def main():
             router_external=dict(required=False),
             router_name=dict(required=False),
             external_gateway_info=dict(required=False),
+            tenant_id=dict(required=False)
         ),
         supports_check_mode=False
     )
