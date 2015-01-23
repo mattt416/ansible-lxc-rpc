@@ -52,6 +52,9 @@ options:
     provider_network_type:
         description:
             - Specify provider:network_type when creating network
+    provider_segmentation_id:
+        description:
+            - Specify provider:segmentation_id when creating network
     router_external:
         description:
             - Specify router:external' when creating network
@@ -113,6 +116,7 @@ COMMAND_MAP = {
             'net_name',
             'provider_physical_network',
             'provider_network_type',
+            'provider_segmentation_id',
             'router_external',
             'tenant_id'
         ]
@@ -276,6 +280,7 @@ class ManageNeutron(object):
             'provider_physical_network'
         )
         provider_network_type = variables_dict.pop('provider_network_type')
+        provider_segmentation_id = variables_dict.pop('provider_segmentation_id')
         router_external = variables_dict.pop('router_external')
         tenant_id = variables_dict.pop('tenant_id')
 
@@ -285,6 +290,8 @@ class ManageNeutron(object):
                 n['provider:physical_network'] = provider_physical_network
             if provider_network_type:
                 n['provider:network_type'] = provider_network_type
+            if provider_segmentation_id:
+                n['provider:segmentation_id'] = str(provider_segmentation_id)
             if router_external:
                 n['router:external'] = router_external
             if tenant_id:
@@ -313,7 +320,7 @@ class ManageNeutron(object):
         if not self.neutron.list_subnets(cidr=cidr,
                                          network_id=network_id)['subnets']:
             self.state_change = True
-            s = {"name": subnet_name,"cidr": cidr, "ip_version": 4,
+            s = {"name": subnet_name, "cidr": cidr, "ip_version": 4,
                  "network_id": network_id}
             if tenant_id:
                 s["tenant_id"] = tenant_id
@@ -386,6 +393,7 @@ def main():
             cidr=dict(required=False),
             provider_physical_network=dict(required=False),
             provider_network_type=dict(required=False),
+            provider_segmentation_id=dict(required=False),
             router_external=dict(required=False),
             router_name=dict(required=False),
             external_gateway_info=dict(required=False),
