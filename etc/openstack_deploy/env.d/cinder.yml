@@ -59,7 +59,6 @@ container_skel:
 # Otherwise if cinder-volumes is already running in containers you may want to
 # leave is_metal off, alternatively you will have to migrate your volumes once
 # deployed on metal.
-      is_metal: true
       service_name: cinder
       container_release: trusty
 

@@ -72,7 +72,6 @@ container_skel:
       - neutron_linuxbridge_agent
       - nova_compute
     properties:
-      is_metal: true
       service_name: nova
       container_release: trusty
   nova_conductor_container:

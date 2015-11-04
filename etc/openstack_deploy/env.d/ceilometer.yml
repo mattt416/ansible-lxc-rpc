@@ -49,7 +49,6 @@ container_skel:
     contains:
     - ceilometer_agent_compute
     properties:
-      is_metal: true
       service_name: ceilometer
       container_release: trusty
 

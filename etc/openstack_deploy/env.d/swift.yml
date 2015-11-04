@@ -43,7 +43,6 @@ container_skel:
     contains:
       - swift_acc
     properties:
-      is_metal: true
       service_name: swift
       container_release: trusty
   swift_obj_container:
@@ -52,7 +51,6 @@ container_skel:
     contains:
       - swift_obj
     properties:
-      is_metal: true
       service_name: swift
       container_release: trusty
   swift_cont_container:
@@ -61,7 +59,6 @@ container_skel:
     contains:
       - swift_cont
     properties:
-      is_metal: true
       service_name: swift
       container_release: trusty
 
