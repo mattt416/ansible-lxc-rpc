@@ -19,7 +19,7 @@
     mode: push
     dest: "/etc/swift/"
     set_remote_user: False
-  delegate_to: "{{ groups['swift_hosts'][0] }}"
+  delegate_to: "{{ groups['swift_storage'][0] }}"
   sudo: yes
   sudo_user: "{{ swift_system_user_name }}"
   tags:
@@ -31,7 +31,7 @@
     mode: push
     dest: "/etc/swift/ring_build_files/"
     set_remote_user: False
-  delegate_to: "{{ groups['swift_hosts'][0] }}"
+  delegate_to: "{{ groups['swift_storage'][0] }}"
   sudo: yes
   sudo_user: "{{ swift_system_user_name }}"
   tags:

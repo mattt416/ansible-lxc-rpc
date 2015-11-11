@@ -293,7 +293,7 @@
 #
 # --------
 #
-# Level: swift_hosts (required)
+# Level: swift-storage_hosts (required)
 # List of target hosts on which to deploy the swift storage services.
 # Recommend three minimum target hosts for these services.
 #
@@ -382,7 +382,7 @@
 # Define four storage hosts. The first three hosts contain typical options
 # and the last host contains advanced options.
 #
-# swift_hosts:
+# swift-storage_hosts:
 #   swift-node1:
 #     ip: 172.29.236.151
 #     container_vars:

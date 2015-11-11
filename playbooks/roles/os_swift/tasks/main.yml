@@ -19,7 +19,7 @@
 
 - include: swift_storage_hosts.yml
   when: >
-    inventory_hostname in groups['swift_hosts']
+    inventory_hostname in groups['swift_storage']
   tags:
     - swift-storage-hosts
 

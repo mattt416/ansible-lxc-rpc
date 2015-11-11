@@ -19,7 +19,7 @@
     state: "started"
     pattern: "{{ item }}"
   with_items: swift_account_program_names + swift_container_program_names + swift_object_program_names
-  when: inventory_hostname in groups['swift_hosts']
+  when: inventory_hostname in groups['swift_storage']
 
 - name: "Ensure services are started"
   service:

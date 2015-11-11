@@ -40,8 +40,8 @@
 {%     set _update = def_groups.append(policy.policy.name) %}
 {%   endif %}
 {% endfor %}
-{### Loop through the swift_hosts #}
-{% for host in groups['swift_hosts'] %}
+{### Loop through the swift_storage #}
+{% for host in groups['swift_storage'] %}
 {### Set the default storage_ip #}
 {%   set def_storage_ip = hostvars[host]['ansible_ssh_host'] %}
 {%   if swift.storage_network is defined %}

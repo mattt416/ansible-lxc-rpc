@@ -23,7 +23,7 @@ swift-proxy_hosts:
         read_affinity: "r1=100"
         write_affinity: "r1"
         write_affinity_node_count: "1 * replicas"
-swift_hosts:
+swift-storage_hosts:
   aio1:
     ip: 172.29.236.100
     container_vars:

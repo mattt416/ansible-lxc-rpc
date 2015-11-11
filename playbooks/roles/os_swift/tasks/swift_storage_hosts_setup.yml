@@ -18,12 +18,14 @@
     name: "nf_conntrack"
     state: present
 
-- name: "Set sysctl tcp_tw_reuse"
-  sysctl:
-    name: "net.ipv4.tcp_tw_reuse"
-    state: present
-    value: "1"
-    sysctl_set: yes
+# NOTE: this fails inside a container -- need to investigate what needs to be
+#       done here to.
+#- name: "Set sysctl tcp_tw_reuse"
+#  sysctl:
+#    name: "net.ipv4.tcp_tw_reuse"
+#    state: present
+#    value: "1"
+#    sysctl_set: yes
 
 # We need swift_vars to exist for the "swift_vars.drives is defined check" to work
 - name: "Set swift_vars if undefined"
